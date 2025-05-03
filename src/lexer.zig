@@ -84,7 +84,7 @@ fn append(self: *Self, typ: TokenType) Allocator.Error!void {
 fn identifier(self: *Self) void {
     while (true) {
         if (self.peek()) |c| {
-            if (std.ascii.isWhitespace(c) or c == self.rule_delimiter or c == self.stack_delimiter) {
+            if (std.ascii.isWhitespace(c) or c == self.rule_delimiter or c == self.stack_delimiter or c == '?') {
                 break;
             }
             self.advance();
@@ -117,6 +117,8 @@ pub fn lex(self: *Self) Allocator.Error!std.ArrayList(Token) {
                 try self.append(TokenType.rule_delimiter);
             } else if (c == self.stack_delimiter) {
                 try self.append(TokenType.stack_delimiter);
+            } else if (c == '?') {
+                try self.append(TokenType.question_mark);
             } else if (c == '$') {
                 self.advance();
                 self.identifier();
