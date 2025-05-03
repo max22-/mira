@@ -79,7 +79,6 @@ fn build_error(self: *Self, comptime fmt: []const u8, args: anytype) Allocator.E
 }
 
 fn match(self: *Self, expected_type: TokenType) (Allocator.Error || ParseError)!void {
-    std.debug.print("matching {} at {}\n", .{ expected_type, self.pos });
     const token = self.lexer.get(self.pos) catch |err| switch (err) {
         LexerError.EOFError => {
             try self.build_error("expected {}, found EOF", .{expected_type});
@@ -232,3 +231,7 @@ pub fn parse(self: *Self) (Allocator.Error || ParseError)!Program.Program {
     _ = try self.stack_interner.intern(""); // we intern the "special" stack first
     return self.parseProgram();
 }
+
+// TODO: var interning should be reset for each rule
+// TODO: use "initial_state"
+// TODO: check that there are no unbound variables on the RHS
