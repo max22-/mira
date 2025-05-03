@@ -3,7 +3,11 @@ const Allocator = std.mem.Allocator;
 
 const Self = @This();
 
-const TokenType = enum {
+pub const LexerError = error{
+    EOFError,
+};
+
+pub const TokenType = enum {
     rule_delimiter,
     stack_delimiter,
     question_mark,
@@ -11,7 +15,7 @@ const TokenType = enum {
     variable,
 };
 
-const Token = struct {
+pub const Token = struct {
     type: TokenType,
     pos: usize,
     val: []const u8,
@@ -94,21 +98,20 @@ fn identifier(self: *Self) void {
     }
 }
 
-// The list of tokens if owned by the caller.
-pub fn lex(self: *Self) Allocator.Error!std.ArrayList(Token) {
+pub fn lex(self: *Self) Allocator.Error!void {
     self.newToken();
     if (self.readChar()) |c| {
         self.rule_delimiter = c;
         try self.append(TokenType.rule_delimiter);
     } else {
-        return self.tokens;
+        return;
     }
     self.newToken();
     if (self.readChar()) |c| {
         self.stack_delimiter = c;
         try self.append(TokenType.stack_delimiter);
     } else {
-        return self.tokens;
+        return;
     }
     while (true) {
         self.newToken();
@@ -131,5 +134,12 @@ pub fn lex(self: *Self) Allocator.Error!std.ArrayList(Token) {
             break;
         }
     }
-    return self.tokens;
+}
+
+pub fn get(self: Self, i: usize) LexerError!Token {
+    if (i < self.tokens.items.len) {
+        return self.tokens.items[i];
+    } else {
+        return LexerError.EOFError;
+    }
 }
