@@ -12,6 +12,7 @@ pub fn compile(allocator: Allocator, file_path: []const u8, source: []const u8) 
         return err;
     };
     defer program.deinit();
+    std.debug.print("{}\n", .{program});
     const result = try allocator.alloc(u8, 5);
     @memcpy(result, "hello");
     return result;

@@ -12,6 +12,15 @@ pub const TupleItemType = enum {
 pub const TupleItem = union(TupleItemType) {
     string: InternedString,
     variable: InternedString,
+
+    pub fn format(self: TupleItem, comptime fmt: []const u8, options: std.fmt.FormatOptions, writer: anytype) !void {
+        _ = fmt;
+        _ = options;
+        switch (self) {
+            .string => try writer.print("{}", .{self.string}),
+            .variable => try writer.print("${}", .{self.variable}),
+        }
+    }
 };
 
 pub const LhsTuple = struct {
@@ -28,6 +37,20 @@ pub const LhsTuple = struct {
     pub fn deinit(self: *LhsTuple) void {
         self.items.deinit();
     }
+
+    pub fn format(self: LhsTuple, comptime fmt: []const u8, options: std.fmt.FormatOptions, writer: anytype) !void {
+        _ = fmt;
+        _ = options;
+        for (self.items.items, 0..) |item, i| {
+            if (i != 0) {
+                try writer.print(" ", .{});
+            }
+            try writer.print("{}", .{item});
+        }
+        if (self.keep) {
+            try writer.print("?", .{});
+        }
+    }
 };
 
 pub const RhsTuple = struct {
@@ -42,6 +65,17 @@ pub const RhsTuple = struct {
     pub fn deinit(self: *RhsTuple) void {
         self.items.deinit();
     }
+
+    pub fn format(self: RhsTuple, comptime fmt: []const u8, options: std.fmt.FormatOptions, writer: anytype) !void {
+        _ = fmt;
+        _ = options;
+        for (self.items.items, 0..) |item, i| {
+            if (i != 0) {
+                try writer.print(" ", .{});
+            }
+            try writer.print("{}", .{item});
+        }
+    }
 };
 
 pub const LHSItem = struct {
@@ -51,6 +85,12 @@ pub const LHSItem = struct {
     fn deinit(self: *LHSItem) void {
         self.tuple.deinit();
     }
+
+    pub fn format(self: LHSItem, comptime fmt: []const u8, options: std.fmt.FormatOptions, writer: anytype) !void {
+        _ = fmt;
+        _ = options;
+        try writer.print(":{}:{}", .{ self.stack, self.tuple });
+    }
 };
 
 pub const RHSItem = struct {
@@ -59,6 +99,12 @@ pub const RHSItem = struct {
 
     fn deinit(self: *RHSItem) void {
         self.tuple.deinit();
+    }
+
+    pub fn format(self: RHSItem, comptime fmt: []const u8, options: std.fmt.FormatOptions, writer: anytype) !void {
+        _ = fmt;
+        _ = options;
+        try writer.print(":{}:{}", .{ self.stack, self.tuple });
     }
 };
 
@@ -75,6 +121,17 @@ pub const Lhs = struct {
         }
         self.items.deinit();
     }
+
+    pub fn format(self: Lhs, comptime fmt: []const u8, options: std.fmt.FormatOptions, writer: anytype) !void {
+        _ = fmt;
+        _ = options;
+        for (self.items.items, 0..) |item, i| {
+            if (i != 0) {
+                try writer.print(" ", .{});
+            }
+            try writer.print("{}", .{item});
+        }
+    }
 };
 
 pub const Rhs = struct {
@@ -89,6 +146,17 @@ pub const Rhs = struct {
             item.deinit();
         }
         self.items.deinit();
+    }
+
+    pub fn format(self: Rhs, comptime fmt: []const u8, options: std.fmt.FormatOptions, writer: anytype) !void {
+        _ = fmt;
+        _ = options;
+        for (self.items.items, 0..) |item, i| {
+            if (i != 0) {
+                try writer.print(" ", .{});
+            }
+            try writer.print("{}", .{item});
+        }
     }
 };
 
@@ -107,6 +175,12 @@ pub const Rule = struct {
 
     pub fn add_rhs_item(self: *Rule, rhs_item: RHSItem) Allocator.Error!void {
         try self.rhs.append(rhs_item);
+    }
+
+    pub fn format(self: Rule, comptime fmt: []const u8, options: std.fmt.FormatOptions, writer: anytype) !void {
+        _ = fmt;
+        _ = options;
+        try writer.print("|{}| {}", .{ self.lhs, self.rhs });
     }
 };
 
@@ -135,5 +209,13 @@ pub const Program = struct {
 
     pub fn add_initial_state_item(self: *Program, initial_state_item: RHSItem) Allocator.Error!void {
         try self.initial_state.append(initial_state_item);
+    }
+
+    pub fn format(self: Program, comptime fmt: []const u8, options: std.fmt.FormatOptions, writer: anytype) !void {
+        _ = fmt;
+        _ = options;
+        for (self.rules.items) |rule| {
+            try writer.print("{}\n", .{rule});
+        }
     }
 };
