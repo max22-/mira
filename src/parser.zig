@@ -218,9 +218,6 @@ fn parseRule(self: *Self) (Allocator.Error || ParseError)!Program.Rule {
 // the Program is owned by the parser
 pub fn parse(self: *Self) (Allocator.Error || ParseError)!Program.Program {
     try self.lexer.lex();
-    for (self.lexer.tokens.items) |token| {
-        std.debug.print("{}\n", .{token});
-    }
     _ = try self.stack_interner.intern(""); // we intern the "special" stack first
     var rule = try self.parseRule();
     defer rule.deinit();
