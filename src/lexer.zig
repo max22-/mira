@@ -13,6 +13,7 @@ pub const TokenType = enum {
     question_mark,
     identifier,
     variable,
+    eof,
 };
 
 pub const Token = struct {
@@ -131,6 +132,7 @@ pub fn lex(self: *Self) Allocator.Error!void {
                 try self.append(TokenType.identifier);
             }
         } else {
+            try self.append(TokenType.eof);
             break;
         }
     }

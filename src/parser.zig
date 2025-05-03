@@ -106,10 +106,6 @@ fn advance(self: *Self) void {
     self.pos += 1;
 }
 
-fn isEof(self: Self) bool {
-    return self.pos >= self.lexer.tokens.items.len;
-}
-
 fn parseTupleItem(self: *Self) (Allocator.Error || ParseError)!Program.TupleItem {
     const token = try self.peek();
     const result = switch (token.type) {
@@ -177,7 +173,7 @@ fn parseLhs(self: *Self) (Allocator.Error || ParseError)!Program.Lhs {
     var result = Program.Lhs.init(self.allocator);
     errdefer result.deinit();
     while (true) {
-        const token = try self.peek();
+        const token = self.peek() catch break;
         if (token.type == TokenType.stack_delimiter) {
             try result.items.append(try self.parseLhsItem());
         } else {
@@ -220,7 +216,11 @@ fn parseRule(self: *Self) (Allocator.Error || ParseError)!Program.Rule {
 fn parseProgram(self: *Self) (Allocator.Error || ParseError)!Program.Program {
     var program = Program.Program.init(self.allocator);
     errdefer program.deinit();
-    while (!self.isEof()) {
+    while (true) {
+        const token = try self.peek();
+        if (token.type == TokenType.eof) {
+            break;
+        }
         try program.add_rule(try self.parseRule());
     }
     return program;
