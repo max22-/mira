@@ -144,6 +144,7 @@ fn parseRhsTuple(self: *Self) (Allocator.Error || ParseError)!Program.RhsTuple {
     while (true) {
         const item = self.parseTupleItem() catch |err| switch (err) {
             ParseError.UnexpectedToken => break,
+            ParseError.UnexpectedEOF => break,
             else => return err,
         };
         try tuple.items.append(item);
