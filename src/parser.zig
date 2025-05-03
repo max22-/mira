@@ -9,7 +9,7 @@ const Program = @import("program.zig");
 
 const Self = @This();
 
-const ParseError = error{
+pub const ParseError = error{
     UnexpectedEOF,
     UnexpectedToken,
 };
@@ -21,7 +21,6 @@ lexer: Lexer,
 stack_interner: Interner,
 variable_interner: Interner,
 string_interner: Interner,
-program: Program.Program,
 pos: usize,
 pretty_error: ?[]const u8,
 
@@ -34,7 +33,6 @@ pub fn init(allocator: Allocator, file_path: []const u8, source: []const u8) Sel
         .stack_interner = Interner.init(allocator),
         .variable_interner = Interner.init(allocator),
         .string_interner = Interner.init(allocator),
-        .program = Program.Program.init(allocator),
         .pos = 0,
         .pretty_error = null,
     };
@@ -45,7 +43,6 @@ pub fn deinit(self: *Self) void {
     self.stack_interner.deinit();
     self.variable_interner.deinit();
     self.string_interner.deinit();
-    self.program.deinit();
     if (self.pretty_error) |err| {
         self.allocator.free(err);
     }
@@ -107,6 +104,10 @@ fn peek(self: Self) ParseError!Token {
 
 fn advance(self: *Self) void {
     self.pos += 1;
+}
+
+fn isEof(self: Self) bool {
+    return self.pos >= self.lexer.tokens.items.len;
 }
 
 fn parseTupleItem(self: *Self) (Allocator.Error || ParseError)!Program.TupleItem {
@@ -216,19 +217,18 @@ fn parseRule(self: *Self) (Allocator.Error || ParseError)!Program.Rule {
     return rule;
 }
 
-// the Program is owned by the parser
+fn parseProgram(self: *Self) (Allocator.Error || ParseError)!Program.Program {
+    var program = Program.Program.init(self.allocator);
+    errdefer program.deinit();
+    while (!self.isEof()) {
+        try program.add_rule(try self.parseRule());
+    }
+    return program;
+}
+
+// the Program is owned by the caller
 pub fn parse(self: *Self) (Allocator.Error || ParseError)!Program.Program {
     try self.lexer.lex();
     _ = try self.stack_interner.intern(""); // we intern the "special" stack first
-    var rule = try self.parseRule();
-    defer rule.deinit();
-    std.debug.print("\nrule = {}\n", .{rule});
-    for (rule.lhs.items.items) |item| {
-        std.debug.print("lhs_item: {}\n", .{item});
-    }
-    for (rule.rhs.items.items) |item| {
-        std.debug.print("rhs_item: {}\n", .{item});
-    }
-    std.debug.print("\n", .{});
-    return self.program;
+    return self.parseProgram();
 }
