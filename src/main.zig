@@ -18,7 +18,4 @@ pub fn main() !void {
     defer allocator.free(source);
     const result = try mira.compile(allocator, file_path, source);
     defer allocator.free(result);
-
-    //const file = std.fs.cwd().readFileAlloc(allocator, file_path: []const u8, max_bytes: usize)
-    //std.debug.print("{}", .{mira.add(4, 5)});
 }
