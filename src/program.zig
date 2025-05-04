@@ -169,6 +169,17 @@ pub const Rule = struct {
         self.rhs.deinit();
     }
 
+    pub fn isInitial(self: Rule) bool {
+        return self.lhs.items.items.len == 1 and self.lhs.items.items[0].stack == 0 and self.lhs.items.items[0].tuple.items.items.len == 0;
+    }
+
+    // The rule is invalidated. The rhs is owned by the caller.
+    // Used for the initial state only.
+    pub fn toOwnedInitialStateItems(self: *Rule) Rhs {
+        self.lhs.deinit();
+        return self.rhs;
+    }
+
     pub fn format(self: Rule, comptime fmt: []const u8, options: std.fmt.FormatOptions, writer: anytype) !void {
         _ = fmt;
         _ = options;
@@ -192,6 +203,9 @@ pub const Program = struct {
             rule.deinit();
         }
         self.rules.deinit();
+        for (self.initial_state.items) |*item| {
+            item.deinit();
+        }
         self.initial_state.deinit();
     }
 
@@ -199,8 +213,9 @@ pub const Program = struct {
         try self.rules.append(rule);
     }
 
-    pub fn add_initial_state_item(self: *Program, initial_state_item: RHSItem) Allocator.Error!void {
-        try self.initial_state.append(initial_state_item);
+    pub fn appendToInitialState(self: *Program, initial_state_items: Rhs) Allocator.Error!void {
+        defer initial_state_items.items.deinit();
+        try self.initial_state.appendSlice(initial_state_items.items.items);
     }
 
     pub fn format(self: Program, comptime fmt: []const u8, options: std.fmt.FormatOptions, writer: anytype) !void {
@@ -208,6 +223,11 @@ pub const Program = struct {
         _ = options;
         for (self.rules.items) |rule| {
             try writer.print("{}\n", .{rule});
+        }
+        // initial state :
+        try writer.print("|::|", .{});
+        for (self.initial_state.items) |rhs| {
+            try writer.print(" {}", .{rhs});
         }
     }
 };

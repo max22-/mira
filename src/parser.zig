@@ -221,7 +221,12 @@ fn parseProgram(self: *Self) (Allocator.Error || ParseError)!Program.Program {
         if (token.type == TokenType.eof) {
             break;
         }
-        try program.add_rule(try self.parseRule());
+        var rule = try self.parseRule();
+        if (rule.isInitial()) {
+            try program.appendToInitialState(rule.toOwnedInitialStateItems());
+        } else {
+            try program.add_rule(rule);
+        }
     }
     return program;
 }
@@ -235,3 +240,4 @@ pub fn parse(self: *Self) (Allocator.Error || ParseError)!Program.Program {
 
 // TODO: use "initial_state" (or not ?)
 // TODO: check that there are no unbound variables on the RHS
+// TODO: use toOwnedSline ?
