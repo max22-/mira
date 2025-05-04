@@ -213,7 +213,7 @@ pub const Program = struct {
             try writer.print("{}\n", .{rule});
         }
         // initial state :
-        try writer.print("|::|", .{});
+        try writer.print("|:0:|", .{});
         for (self.initial_state) |rhs| {
             try writer.print(" {}", .{rhs});
         }
