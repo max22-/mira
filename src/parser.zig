@@ -116,35 +116,39 @@ fn parseTupleItem(self: *Self, variable_interner: *Interner) (Allocator.Error ||
 }
 
 fn parseLhsTuple(self: *Self, variable_interner: *Interner) (Allocator.Error || ParseError)!Program.LhsTuple {
-    var tuple = Program.LhsTuple.init(self.allocator);
-    errdefer tuple.deinit();
+    var tuple = std.ArrayList(Program.TupleItem).init(self.allocator);
+    defer tuple.deinit();
+    var keep: bool = false;
     while (true) {
         const item = self.parseTupleItem(variable_interner) catch |err| switch (err) {
             ParseError.UnexpectedToken => break,
             else => return err,
         };
-        try tuple.items.append(item);
+        try tuple.append(item);
     }
     const token = try self.peek();
     if (token.type == TokenType.question_mark) {
-        tuple.keep = true;
+        keep = true;
         self.advance();
     }
-    return tuple;
+    return Program.LhsTuple{
+        .items = try tuple.toOwnedSlice(),
+        .keep = keep,
+    };
 }
 
 fn parseRhsTuple(self: *Self, variable_interner: *Interner) (Allocator.Error || ParseError)!Program.RhsTuple {
-    var tuple = Program.RhsTuple.init(self.allocator);
-    errdefer tuple.deinit();
+    var tuple = std.ArrayList(Program.TupleItem).init(self.allocator);
+    defer tuple.deinit();
     while (true) {
         const item = self.parseTupleItem(variable_interner) catch |err| switch (err) {
             ParseError.UnexpectedToken => break,
             ParseError.UnexpectedEOF => break,
             else => return err,
         };
-        try tuple.items.append(item);
+        try tuple.append(item);
     }
-    return tuple;
+    return Program.RhsTuple{ .items = try tuple.toOwnedSlice() };
 }
 
 fn parseStack(self: *Self) (Allocator.Error || ParseError)!Program.Stack {
@@ -168,17 +172,22 @@ fn parseLhsItem(self: *Self, variable_interner: *Interner) (Allocator.Error || P
 }
 
 fn parseLhs(self: *Self, variable_interner: *Interner) (Allocator.Error || ParseError)!Program.Lhs {
-    var result = Program.Lhs.init(self.allocator);
-    errdefer result.deinit();
+    var items = std.ArrayList(Program.LHSItem).init(self.allocator);
+    errdefer {
+        for (items.items) |*item| {
+            item.deinit(self.allocator);
+        }
+    }
+    defer items.deinit();
     while (true) {
         const token = self.peek() catch break;
         if (token.type == TokenType.stack_delimiter) {
-            try result.items.append(try self.parseLhsItem(variable_interner));
+            try items.append(try self.parseLhsItem(variable_interner));
         } else {
             break;
         }
     }
-    return result;
+    return Program.Lhs{ .items = try items.toOwnedSlice() };
 }
 
 fn parseRhsItem(self: *Self, variable_interner: *Interner) (Allocator.Error || ParseError)!Program.RHSItem {
@@ -188,17 +197,22 @@ fn parseRhsItem(self: *Self, variable_interner: *Interner) (Allocator.Error || P
 }
 
 fn parseRhs(self: *Self, variable_interner: *Interner) (Allocator.Error || ParseError)!Program.Rhs {
-    var result = Program.Rhs.init(self.allocator);
-    errdefer result.deinit();
+    var items = std.ArrayList(Program.RHSItem).init(self.allocator);
+    errdefer {
+        for (items.items) |*item| {
+            item.deinit(self.allocator);
+        }
+    }
+    defer items.deinit();
     while (true) {
-        const token = self.peek() catch return result;
+        const token = self.peek() catch return Program.Rhs{ .items = try items.toOwnedSlice() };
         if (token.type == TokenType.stack_delimiter) {
-            try result.items.append(try self.parseRhsItem(variable_interner));
+            try items.append(try self.parseRhsItem(variable_interner));
         } else {
             break;
         }
     }
-    return result;
+    return Program.Rhs{ .items = try items.toOwnedSlice() };
 }
 
 fn parseRule(self: *Self) (Allocator.Error || ParseError)!Program.Rule {
@@ -207,15 +221,28 @@ fn parseRule(self: *Self) (Allocator.Error || ParseError)!Program.Rule {
     defer variable_interner.deinit();
     try self.match(TokenType.rule_delimiter);
     rule.lhs = try self.parseLhs(&variable_interner);
-    errdefer rule.lhs.deinit();
+    errdefer rule.lhs.deinit(self.allocator);
     try self.match(TokenType.rule_delimiter);
     rule.rhs = try self.parseRhs(&variable_interner);
     return rule;
 }
 
 fn parseProgram(self: *Self) (Allocator.Error || ParseError)!Program.Program {
-    var program = Program.Program.init(self.allocator);
-    errdefer program.deinit();
+    var rules = std.ArrayList(Program.Rule).init(self.allocator);
+    errdefer {
+        for (rules.items) |*rule| {
+            rule.deinit(self.allocator);
+        }
+    }
+    defer rules.deinit();
+    var initial_state = std.ArrayList(Program.RHSItem).init(self.allocator);
+    errdefer {
+        for (initial_state.items) |*item| {
+            item.deinit(self.allocator);
+        }
+    }
+    defer initial_state.deinit();
+
     while (true) {
         const token = try self.peek();
         if (token.type == TokenType.eof) {
@@ -223,12 +250,17 @@ fn parseProgram(self: *Self) (Allocator.Error || ParseError)!Program.Program {
         }
         var rule = try self.parseRule();
         if (rule.isInitial()) {
-            try program.appendToInitialState(rule.toOwnedInitialStateItems());
+            const initial_state_items = rule.toOwnedInitialStateItems(self.allocator);
+            defer self.allocator.free(initial_state_items);
+            try initial_state.appendSlice(initial_state_items);
         } else {
-            try program.add_rule(rule);
+            try rules.append(rule);
         }
     }
-    return program;
+    return Program.Program{
+        .rules = try rules.toOwnedSlice(),
+        .initial_state = try initial_state.toOwnedSlice(),
+    };
 }
 
 // the Program is owned by the caller
@@ -240,3 +272,22 @@ pub fn parse(self: *Self) (Allocator.Error || ParseError)!Program.Program {
 
 // TODO: check that there are no unbound variables on the RHS
 // TODO: use toOwnedSlice ?
+
+test "memory leak test" {
+    const file_path = "move.nv";
+    const source =
+        \\|:move: move? :: $x | :dst: $x
+        \\|:move:|
+        \\
+        \\|::|
+        \\:: 0
+        \\:: 1
+        \\:: 2
+        \\:: 3
+        \\:: 4
+    ;
+    var parser = Self.init(std.testing.allocator, file_path, source);
+    defer parser.deinit();
+    var program = try parser.parse();
+    defer program.deinit(std.testing.allocator);
+}
