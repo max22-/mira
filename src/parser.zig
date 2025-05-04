@@ -271,7 +271,6 @@ pub fn parse(self: *Self) (Allocator.Error || ParseError)!Program.Program {
 }
 
 // TODO: check that there are no unbound variables on the RHS
-// TODO: use toOwnedSlice ?
 
 test "memory leak test" {
     const file_path = "move.nv";
