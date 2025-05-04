@@ -181,15 +181,6 @@ pub const Program = struct {
         allocator.free(self.initial_state);
     }
 
-    pub fn add_rule(self: *Program, rule: Rule) Allocator.Error!void {
-        try self.rules.append(rule);
-    }
-
-    pub fn appendToInitialState(self: *Program, initial_state_items: Rhs) Allocator.Error!void {
-        defer initial_state_items.items.deinit();
-        try self.initial_state.appendSlice(initial_state_items.items.items);
-    }
-
     pub fn format(self: Program, comptime fmt: []const u8, options: std.fmt.FormatOptions, writer: anytype) !void {
         _ = fmt;
         _ = options;
