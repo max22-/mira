@@ -239,4 +239,4 @@ pub fn parse(self: *Self) (Allocator.Error || ParseError)!Program.Program {
 }
 
 // TODO: check that there are no unbound variables on the RHS
-// TODO: use toOwnedSline ?
+// TODO: use toOwnedSlice ?
