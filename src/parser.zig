@@ -238,6 +238,5 @@ pub fn parse(self: *Self) (Allocator.Error || ParseError)!Program.Program {
     return self.parseProgram();
 }
 
-// TODO: use "initial_state" (or not ?)
 // TODO: check that there are no unbound variables on the RHS
 // TODO: use toOwnedSline ?
