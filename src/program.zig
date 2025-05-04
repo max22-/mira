@@ -4,6 +4,10 @@ const InternedString = @import("interner.zig").InternedString;
 
 const Self = @This();
 
+pub const SemanticError = error{
+    UnboundVariable,
+};
+
 pub const Stack = InternedString;
 pub const TupleItemType = enum {
     string,
@@ -179,6 +183,27 @@ pub const Program = struct {
             item.deinit(allocator);
         }
         allocator.free(self.initial_state);
+    }
+
+    pub fn check(self: Program) SemanticError!void {
+        // check for unbound variables in the rhs of each rule
+        for (self.rules) |rule| {
+            var var_id_max: i64 = -1;
+            for (rule.lhs.items) |item| {
+                for (item.tuple.items) |tuple_item| {
+                    if (tuple_item == .variable) {
+                        var_id_max = @max(var_id_max, tuple_item.variable);
+                    }
+                }
+            }
+            for (rule.rhs.items) |item| {
+                for (item.tuple.items) |tuple_item| {
+                    if (tuple_item == .variable and tuple_item.variable > var_id_max) {
+                        return SemanticError.UnboundVariable;
+                    }
+                }
+            }
+        }
     }
 
     pub fn format(self: Program, comptime fmt: []const u8, options: std.fmt.FormatOptions, writer: anytype) !void {

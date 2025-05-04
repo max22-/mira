@@ -264,13 +264,14 @@ fn parseProgram(self: *Self) (Allocator.Error || ParseError)!Program.Program {
 }
 
 // the Program is owned by the caller
-pub fn parse(self: *Self) (Allocator.Error || ParseError)!Program.Program {
+pub fn parse(self: *Self) (Allocator.Error || ParseError || Program.SemanticError)!Program.Program {
     try self.lexer.lex();
     _ = try self.stack_interner.intern(""); // we intern the "special" stack first
-    return self.parseProgram();
+    var program = try self.parseProgram();
+    errdefer program.deinit(self.allocator);
+    try program.check();
+    return program;
 }
-
-// TODO: check that there are no unbound variables on the RHS
 
 test "memory leak test" {
     const file_path = "move.nv";
@@ -289,4 +290,21 @@ test "memory leak test" {
     defer parser.deinit();
     var program = try parser.parse();
     defer program.deinit(std.testing.allocator);
+}
+
+test "unbound variables in the rhs should cause an error" {
+    const file_path = "example.nv";
+    const source =
+        \\|:: $x | :some_other_stack: $x $y
+        \\
+        \\|::|
+        \\:: 0
+        \\:: 1
+        \\:: 2
+        \\:: 3
+        \\:: 4
+    ;
+    var parser = Self.init(std.testing.allocator, file_path, source);
+    defer parser.deinit();
+    try std.testing.expectError(Program.SemanticError.UnboundVariable, parser.parse());
 }

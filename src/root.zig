@@ -1,8 +1,9 @@
 const std = @import("std");
 const Allocator = std.mem.Allocator;
 const Parser = @import("parser.zig");
+const SemanticError = @import("program.zig").SemanticError;
 
-pub fn compile(allocator: Allocator, file_path: []const u8, source: []const u8) (Allocator.Error || Parser.ParseError)![]u8 {
+pub fn compile(allocator: Allocator, file_path: []const u8, source: []const u8) (Allocator.Error || Parser.ParseError || SemanticError)![]u8 {
     var parser = Parser.init(allocator, file_path, source);
     defer parser.deinit();
     var program = parser.parse() catch |err| {
