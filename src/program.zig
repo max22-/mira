@@ -169,14 +169,6 @@ pub const Rule = struct {
         self.rhs.deinit();
     }
 
-    pub fn add_lhs_item(self: *Rule, lhs_item: LHSItem) Allocator.Error!void {
-        try self.lhs.append(lhs_item);
-    }
-
-    pub fn add_rhs_item(self: *Rule, rhs_item: RHSItem) Allocator.Error!void {
-        try self.rhs.append(rhs_item);
-    }
-
     pub fn format(self: Rule, comptime fmt: []const u8, options: std.fmt.FormatOptions, writer: anytype) !void {
         _ = fmt;
         _ = options;
