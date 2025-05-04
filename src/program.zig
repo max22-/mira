@@ -89,7 +89,7 @@ pub const LHSItem = struct {
     pub fn format(self: LHSItem, comptime fmt: []const u8, options: std.fmt.FormatOptions, writer: anytype) !void {
         _ = fmt;
         _ = options;
-        try writer.print(":{}:{}", .{ self.stack, self.tuple });
+        try writer.print(":{}: {}", .{ self.stack, self.tuple });
     }
 };
 
@@ -104,7 +104,7 @@ pub const RHSItem = struct {
     pub fn format(self: RHSItem, comptime fmt: []const u8, options: std.fmt.FormatOptions, writer: anytype) !void {
         _ = fmt;
         _ = options;
-        try writer.print(":{}:{}", .{ self.stack, self.tuple });
+        try writer.print(":{}: {}", .{ self.stack, self.tuple });
     }
 };
 
