@@ -19,8 +19,9 @@ file_path: []const u8,
 source: []const u8,
 lexer: Lexer,
 stack_interner: Interner,
-variable_interner: Interner,
 string_interner: Interner,
+// There is a variable interner, but it is instantiated for each rule.
+// So it is reset for each rule. Each rule has a fresh set of variable IDs.
 pos: usize,
 pretty_error: ?[]const u8,
 
@@ -31,7 +32,6 @@ pub fn init(allocator: Allocator, file_path: []const u8, source: []const u8) Sel
         .source = source,
         .lexer = Lexer.init(allocator, source),
         .stack_interner = Interner.init(allocator),
-        .variable_interner = Interner.init(allocator),
         .string_interner = Interner.init(allocator),
         .pos = 0,
         .pretty_error = null,
@@ -41,7 +41,6 @@ pub fn init(allocator: Allocator, file_path: []const u8, source: []const u8) Sel
 pub fn deinit(self: *Self) void {
     self.lexer.deinit();
     self.stack_interner.deinit();
-    self.variable_interner.deinit();
     self.string_interner.deinit();
     if (self.pretty_error) |err| {
         self.allocator.free(err);
@@ -105,22 +104,22 @@ fn advance(self: *Self) void {
     self.pos += 1;
 }
 
-fn parseTupleItem(self: *Self) (Allocator.Error || ParseError)!Program.TupleItem {
+fn parseTupleItem(self: *Self, variable_interner: *Interner) (Allocator.Error || ParseError)!Program.TupleItem {
     const token = try self.peek();
     const result = switch (token.type) {
         TokenType.identifier => Program.TupleItem{ .string = try self.string_interner.intern(token.val) },
-        TokenType.variable => Program.TupleItem{ .variable = try self.variable_interner.intern(token.val) },
+        TokenType.variable => Program.TupleItem{ .variable = try variable_interner.intern(token.val) },
         else => return ParseError.UnexpectedToken,
     };
     self.advance();
     return result;
 }
 
-fn parseLhsTuple(self: *Self) (Allocator.Error || ParseError)!Program.LhsTuple {
+fn parseLhsTuple(self: *Self, variable_interner: *Interner) (Allocator.Error || ParseError)!Program.LhsTuple {
     var tuple = Program.LhsTuple.init(self.allocator);
     errdefer tuple.deinit();
     while (true) {
-        const item = self.parseTupleItem() catch |err| switch (err) {
+        const item = self.parseTupleItem(variable_interner) catch |err| switch (err) {
             ParseError.UnexpectedToken => break,
             else => return err,
         };
@@ -134,11 +133,11 @@ fn parseLhsTuple(self: *Self) (Allocator.Error || ParseError)!Program.LhsTuple {
     return tuple;
 }
 
-fn parseRhsTuple(self: *Self) (Allocator.Error || ParseError)!Program.RhsTuple {
+fn parseRhsTuple(self: *Self, variable_interner: *Interner) (Allocator.Error || ParseError)!Program.RhsTuple {
     var tuple = Program.RhsTuple.init(self.allocator);
     errdefer tuple.deinit();
     while (true) {
-        const item = self.parseTupleItem() catch |err| switch (err) {
+        const item = self.parseTupleItem(variable_interner) catch |err| switch (err) {
             ParseError.UnexpectedToken => break,
             ParseError.UnexpectedEOF => break,
             else => return err,
@@ -162,19 +161,19 @@ fn parseStack(self: *Self) (Allocator.Error || ParseError)!Program.Stack {
     return result;
 }
 
-fn parseLhsItem(self: *Self) (Allocator.Error || ParseError)!Program.LHSItem {
+fn parseLhsItem(self: *Self, variable_interner: *Interner) (Allocator.Error || ParseError)!Program.LHSItem {
     const stack = try self.parseStack();
-    const tuple = try self.parseLhsTuple();
+    const tuple = try self.parseLhsTuple(variable_interner);
     return Program.LHSItem{ .stack = stack, .tuple = tuple };
 }
 
-fn parseLhs(self: *Self) (Allocator.Error || ParseError)!Program.Lhs {
+fn parseLhs(self: *Self, variable_interner: *Interner) (Allocator.Error || ParseError)!Program.Lhs {
     var result = Program.Lhs.init(self.allocator);
     errdefer result.deinit();
     while (true) {
         const token = self.peek() catch break;
         if (token.type == TokenType.stack_delimiter) {
-            try result.items.append(try self.parseLhsItem());
+            try result.items.append(try self.parseLhsItem(variable_interner));
         } else {
             break;
         }
@@ -182,19 +181,19 @@ fn parseLhs(self: *Self) (Allocator.Error || ParseError)!Program.Lhs {
     return result;
 }
 
-fn parseRhsItem(self: *Self) (Allocator.Error || ParseError)!Program.RHSItem {
+fn parseRhsItem(self: *Self, variable_interner: *Interner) (Allocator.Error || ParseError)!Program.RHSItem {
     const stack = try self.parseStack();
-    const tuple = try self.parseRhsTuple();
+    const tuple = try self.parseRhsTuple(variable_interner);
     return Program.RHSItem{ .stack = stack, .tuple = tuple };
 }
 
-fn parseRhs(self: *Self) (Allocator.Error || ParseError)!Program.Rhs {
+fn parseRhs(self: *Self, variable_interner: *Interner) (Allocator.Error || ParseError)!Program.Rhs {
     var result = Program.Rhs.init(self.allocator);
     errdefer result.deinit();
     while (true) {
         const token = self.peek() catch return result;
         if (token.type == TokenType.stack_delimiter) {
-            try result.items.append(try self.parseRhsItem());
+            try result.items.append(try self.parseRhsItem(variable_interner));
         } else {
             break;
         }
@@ -204,11 +203,13 @@ fn parseRhs(self: *Self) (Allocator.Error || ParseError)!Program.Rhs {
 
 fn parseRule(self: *Self) (Allocator.Error || ParseError)!Program.Rule {
     var rule: Program.Rule = undefined;
+    var variable_interner = Interner.init(self.allocator);
+    defer variable_interner.deinit();
     try self.match(TokenType.rule_delimiter);
-    rule.lhs = try self.parseLhs();
+    rule.lhs = try self.parseLhs(&variable_interner);
     errdefer rule.lhs.deinit();
     try self.match(TokenType.rule_delimiter);
-    rule.rhs = try self.parseRhs();
+    rule.rhs = try self.parseRhs(&variable_interner);
     return rule;
 }
 
@@ -232,6 +233,5 @@ pub fn parse(self: *Self) (Allocator.Error || ParseError)!Program.Program {
     return self.parseProgram();
 }
 
-// TODO: var interning should be reset for each rule
-// TODO: use "initial_state"
+// TODO: use "initial_state" (or not ?)
 // TODO: check that there are no unbound variables on the RHS
