@@ -229,19 +229,20 @@ fn parseRule(self: *Self) (Allocator.Error || ParseError)!Program.Rule {
 
 fn parseProgram(self: *Self) (Allocator.Error || ParseError)!Program.Program {
     var rules = std.ArrayList(Program.Rule).init(self.allocator);
+    defer rules.deinit();
     errdefer {
         for (rules.items) |*rule| {
             rule.deinit(self.allocator);
         }
     }
-    defer rules.deinit();
+
     var initial_state = std.ArrayList(Program.RHSItem).init(self.allocator);
+    defer initial_state.deinit();
     errdefer {
         for (initial_state.items) |*item| {
             item.deinit(self.allocator);
         }
     }
-    defer initial_state.deinit();
 
     while (true) {
         const token = try self.peek();
@@ -307,4 +308,22 @@ test "unbound variables in the rhs should cause an error" {
     var parser = Self.init(std.testing.allocator, file_path, source);
     defer parser.deinit();
     try std.testing.expectError(Program.SemanticError.UnboundVariable, parser.parse());
+}
+
+test "parse error" {
+    const file_path = "move.nv";
+    const source =
+        \\|:move: move? :: $x | :dst: $x
+        \\|:move:|
+        \\
+        \\|::|
+        \\:: 0
+        \\:: 1
+        \\:: 2
+        \\:: 3
+        \\:: 4 |
+    ;
+    var parser = Self.init(std.testing.allocator, file_path, source);
+    defer parser.deinit();
+    try std.testing.expectError(ParseError.UnexpectedToken, parser.parse());
 }
