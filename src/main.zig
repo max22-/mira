@@ -18,4 +18,5 @@ pub fn main() !void {
     defer allocator.free(source);
     const result = try mira.compile(allocator, file_path, source);
     defer allocator.free(result);
+    std.debug.print("{s}\n", .{result});
 }
