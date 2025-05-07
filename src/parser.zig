@@ -40,8 +40,6 @@ pub fn init(allocator: Allocator, file_path: []const u8, source: []const u8) Sel
 
 pub fn deinit(self: *Self) void {
     self.lexer.deinit();
-    self.stack_interner.deinit();
-    self.string_interner.deinit();
     if (self.pretty_error) |err| {
         self.allocator.free(err);
     }
@@ -228,6 +226,8 @@ fn parseRule(self: *Self) (Allocator.Error || ParseError)!Program.Rule {
 }
 
 fn parseProgram(self: *Self) (Allocator.Error || ParseError)!Program.Program {
+    errdefer self.stack_interner.deinit();
+    errdefer self.string_interner.deinit();
     var rules = std.ArrayList(Program.Rule).init(self.allocator);
     defer rules.deinit();
     errdefer {
@@ -261,6 +261,8 @@ fn parseProgram(self: *Self) (Allocator.Error || ParseError)!Program.Program {
     return Program.Program{
         .rules = try rules.toOwnedSlice(),
         .initial_state = try initial_state.toOwnedSlice(),
+        .stack_interner = self.stack_interner,
+        .string_interner = self.string_interner,
     };
 }
 

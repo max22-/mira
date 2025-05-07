@@ -1,6 +1,7 @@
 const std = @import("std");
 const Allocator = std.mem.Allocator;
-const InternedString = @import("interner.zig").InternedString;
+const Interner = @import("interner.zig");
+const InternedString = Interner.InternedString;
 
 const Self = @This();
 
@@ -173,6 +174,8 @@ pub const Rule = struct {
 pub const Program = struct {
     rules: []Rule,
     initial_state: []RHSItem,
+    stack_interner: Interner,
+    string_interner: Interner,
 
     pub fn deinit(self: *Program, allocator: Allocator) void {
         for (self.rules) |*rule| {
@@ -183,6 +186,8 @@ pub const Program = struct {
             item.deinit(allocator);
         }
         allocator.free(self.initial_state);
+        self.stack_interner.deinit();
+        self.string_interner.deinit();
     }
 
     pub fn check(self: Program) SemanticError!void {
@@ -217,5 +222,45 @@ pub const Program = struct {
         for (self.initial_state) |rhs| {
             try writer.print(" {}", .{rhs});
         }
+    }
+
+    pub fn getStackCount(self: Program) usize {
+        return self.stack_interner.counter;
+    }
+
+    pub fn getStackArity(self: Program, s: InternedString) usize {
+        var arity: usize = 0;
+        for (self.rules) |rule| {
+            for (rule.lhs.items) |item| {
+                if (item.stack == s) {
+                    arity = @max(arity, item.tuple.items.len);
+                }
+            }
+            for (rule.rhs.items) |item| {
+                if (item.stack == s) {
+                    arity = @max(arity, item.tuple.items.len);
+                }
+            }
+        }
+        for (self.initial_state) |item| {
+            if (item.stack == s) {
+                arity = @max(arity, item.tuple.items.len);
+            }
+        }
+        return arity;
+    }
+
+    pub fn getVarCount(self: Program) InternedString {
+        var result: InternedString = 0;
+        for (self.rules) |rule| {
+            for (rule.lhs.items) |item| {
+                for (item.tuple.items) |tuple_item| {
+                    if (tuple_item == .variable) {
+                        result = @max(result, tuple_item.variable);
+                    }
+                }
+            }
+        }
+        return result + 1;
     }
 };

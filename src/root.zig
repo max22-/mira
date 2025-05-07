@@ -2,6 +2,7 @@ const std = @import("std");
 const Allocator = std.mem.Allocator;
 const Parser = @import("parser.zig");
 const SemanticError = @import("program.zig").SemanticError;
+const ZigGen = @import("zig_gen.zig");
 
 pub fn compile(allocator: Allocator, file_path: []const u8, source: []const u8) (Allocator.Error || Parser.ParseError || SemanticError)![]u8 {
     var parser = Parser.init(allocator, file_path, source);
@@ -15,7 +16,6 @@ pub fn compile(allocator: Allocator, file_path: []const u8, source: []const u8) 
     defer program.deinit(allocator);
     std.debug.print("{}\n", .{program});
 
-    const result = try allocator.alloc(u8, 5);
-    @memcpy(result, "hello");
-    return result;
+    var zig_gen = ZigGen.init(allocator, program);
+    return try zig_gen.compile();
 }
