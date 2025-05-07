@@ -33,6 +33,18 @@ fn Tuple(comptime n: usize) type {
             self.data[self.arity] = i;
             self.arity += 1;
         }
+
+        fn fromSlice(slice: []const Interned) Tuple(n) {
+            var result: Tuple(n) = undefined;
+            if (slice.len > n) {
+                unreachable;
+            }
+            for (0..slice.len) |i| {
+                result.data[i] = slice[i];
+            }
+            result.arity = slice.len;
+            return result;
+        }
     };
 }
 
@@ -81,27 +93,30 @@ fn Stack(comptime n: usize) type {
     };
 }
 
+const PatternItemType = enum { value, variable };
+const PatternItem = union(PatternItemType) {
+    value: Interned,
+    variable: Interned,
+};
+
 const Program = struct {
     stack0: Stack(1),
     stack1: Stack(1),
     stack2: Stack(1),
-
-    vars: [1]Interned,
 
     fn init(allocator: Allocator) Allocator.Error!Program {
         var p = Program{
             .stack0 = Stack(1).init(allocator),
             .stack1 = Stack(1).init(allocator),
             .stack2 = Stack(1).init(allocator),
-            .vars = [_]Interned{0} ** 1,
         };
-        try p.stack0.push(.{ .data = .{1}, .arity = 1 });
-        try p.stack0.push(.{ .data = .{2}, .arity = 1 });
-        try p.stack0.push(.{ .data = .{3}, .arity = 1 });
-        try p.stack0.push(.{ .data = .{4}, .arity = 1 });
-        try p.stack0.push(.{ .data = .{5}, .arity = 1 });
+        try p.stack0.push(Tuple(1).fromSlice(&[_]Interned{1}));
+        try p.stack0.push(Tuple(1).fromSlice(&[_]Interned{2}));
+        try p.stack0.push(Tuple(1).fromSlice(&[_]Interned{3}));
+        try p.stack0.push(Tuple(1).fromSlice(&[_]Interned{4}));
+        try p.stack0.push(Tuple(1).fromSlice(&[_]Interned{5}));
 
-        try p.stack1.push(.{ .data = .{0}, .arity = 1 });
+        try p.stack1.push(Tuple(1).fromSlice(&[_]Interned{0}));
         return p;
     }
 
@@ -123,33 +138,46 @@ const Program = struct {
         self.stack2.commitSuccess();
     }
 
+    fn match(comptime n: usize, stack_tuple: Tuple(n), rule_tuple: []const PatternItem, vars: []?Interned) bool {
+        if (stack_tuple.arity != rule_tuple.len) {
+            return false;
+        }
+        for (rule_tuple, 0..) |item, i| {
+            switch (item) {
+                .value => if (stack_tuple.data[i] != item.value) return false,
+                .variable => if (vars[i]) |v| {
+                    if (stack_tuple.data[i] != v) {
+                        return false;
+                    }
+                } else {
+                    vars[i] = stack_tuple.data[i];
+                },
+            }
+        }
+        return true;
+    }
+
     fn rule0(self: *Program) (Allocator.Error || MiraError)!void {
         errdefer self.commitFailure();
 
-        const t1 = self.stack1.peek() catch |err| switch (err) {
+        var vars = [_]?Interned{null} ** 1;
+
+        const t0 = self.stack1.peek() catch |err| switch (err) {
             MiraError.StackUnderflow => return MiraError.RuleFailed,
-            else => return err,
+            else => unreachable,
         };
-        if (t1.arity != 1) {
+        if (!match(1, t0, &[_]PatternItem{.{ .value = 0 }}, &vars))
             return MiraError.RuleFailed;
-        }
-        if (t1.data[0] != 0) {
-            return MiraError.RuleFailed;
-        }
-        std.debug.print("stack0 = {}\n", .{self.stack0});
+
         const t2 = self.stack0.pop() catch |err| switch (err) {
             MiraError.StackUnderflow => return MiraError.RuleFailed,
-            else => return err,
+            else => unreachable,
         };
-        if (t2.arity != 1) {
+        if (!match(1, t2, &[_]PatternItem{.{ .variable = 0 }}, &vars))
             return MiraError.RuleFailed;
-        }
-        self.vars[0] = t2.data[0];
 
         self.commitSuccess();
-        var t3 = Tuple(1).init();
-        try t3.append(self.vars[0]);
-        try self.stack2.push(t3);
+        try self.stack2.push(Tuple(1).fromSlice(&[_]Interned{vars[0].?}));
     }
 
     fn rule1(self: *Program) (Allocator.Error || MiraError)!void {
