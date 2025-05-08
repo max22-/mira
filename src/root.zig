@@ -14,7 +14,6 @@ pub fn compile(allocator: Allocator, file_path: []const u8, source: []const u8) 
         return err;
     };
     defer program.deinit(allocator);
-    std.debug.print("{}\n", .{program});
 
     var zig_gen = ZigGen.init(allocator, program);
     return try zig_gen.compile();

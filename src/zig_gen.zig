@@ -264,11 +264,60 @@ pub fn compile(self: *Self) Allocator.Error![]u8 {
             \\        self.commitSuccess();
             \\    }
             \\
+        );
+    }
+
+    try self.emit(
+        \\    fn run(self: *Program) (Allocator.Error || MiraError)!void {
+        \\        loop: while (true) {
+        \\
+    );
+
+    for (0..self.program.rules.len) |i| {
+        try self.fmtEmit("            blk{}: {{\n", .{i});
+        try self.fmtEmit("                self.rule{}() catch |err| switch (err) {{\n", .{i});
+
+        try self.fmtEmit("                    MiraError.RuleFailed => break :blk{},\n", .{i});
+        try self.emit(
+            \\                    else => return err,
+            \\                };
+            \\                continue :loop;
+            \\            }
+            \\
             \\
         );
     }
 
-    try self.emit("};\n");
+    try self.emit(
+        \\            break;
+        \\        }
+        \\    }
+        \\};
+        \\
+        \\pub fn main() !void {
+        \\    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+        \\    defer _ = gpa.deinit();
+        \\    const allocator = gpa.allocator();
+        \\    var p = try Program.init(allocator);
+        \\    defer p.deinit();
+        \\    try p.run();
+        \\
+    );
+
+    for (0..stacks_count) |i| {
+        try self.fmtEmit("    std.debug.print(\"stack{}:\\n\", .{{}});\n", .{i});
+        try self.fmtEmit("    for(p.stack{}.data.items) |t| {{\n", .{i});
+        try self.emit(
+            \\        std.debug.print("{any}\n", .{t});
+            \\    }
+            \\
+        );
+    }
+
+    try self.emit(
+        \\}
+        \\
+    );
 
     return self.output.toOwnedSlice();
 }
