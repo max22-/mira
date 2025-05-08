@@ -31,7 +31,19 @@ pub fn fmtEmit(self: *Self, comptime code: []const u8, args: anytype) Allocator.
 
 // The caller owns the returned slice
 pub fn compile(self: *Self) Allocator.Error![]u8 {
+    try self.emit("// stacks:\n");
+    var stack_iterator = self.program.stack_interner.strings.iterator();
+    while (stack_iterator.next()) |kv| {
+        try self.fmtEmit("// :{s}:    {}\n", .{ kv.key_ptr.*, kv.value_ptr.* });
+    }
+    try self.emit("\n// strings:\n");
+    var strings_iterator = self.program.string_interner.strings.iterator();
+    while (strings_iterator.next()) |kv| {
+        try self.fmtEmit("// {s}    {}\n", .{ kv.key_ptr.*, kv.value_ptr.* });
+    }
+
     try self.emit(
+        \\
         \\const std = @import("std");
         \\const Allocator = std.mem.Allocator;
         \\
