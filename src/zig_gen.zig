@@ -205,12 +205,12 @@ pub fn compile(self: *Self) Allocator.Error![]u8 {
         \\        for (rule_tuple, 0..) |item, i| {
         \\            switch (item) {
         \\                .value => if (stack_tuple.data[i] != item.value) return false,
-        \\                .variable => if (vars[i]) |v| {
+        \\                .variable => if (vars[item.variable]) |v| {
         \\                    if (stack_tuple.data[i] != v) {
         \\                        return false;
         \\                    }
         \\                } else {
-        \\                    vars[i] = stack_tuple.data[i];
+        \\                    vars[item.variable] = stack_tuple.data[i];
         \\                },
         \\            }
         \\        }
