@@ -60,12 +60,16 @@ pub fn compile(self: *Self) Allocator.Error![]u8 {
         \\            self.arity = 0;
         \\        }
         \\
-        \\        fn append(self: *Tuple(n), i: Interned) NovaError!void {
-        \\            if (self.arity >= n) {
-        \\                return NovaError.TupleOverflow;
+        \\        fn fromSlice(slice: []const Interned) Tuple(n) {
+        \\            var result: Tuple(n) = undefined;
+        \\            if (slice.len > n) {
+        \\                unreachable;
         \\            }
-        \\            self.data[self.arity] = i;
-        \\            self.arity += 1;
+        \\            for (0..slice.len) |i| {
+        \\                result.data[i] = slice[i];
+        \\            }
+        \\            result.arity = slice.len;
+        \\            return result;
         \\        }
         \\    };
         \\}
@@ -260,9 +264,26 @@ pub fn compile(self: *Self) Allocator.Error![]u8 {
                 \\
             );
         }
+        try self.emit("        self.commitSuccess();\n");
+        for (rule.rhs.items) |item| {
+            try self.fmtEmit(
+                "        try self.stack{}.push(Tuple({}).fromSlice(&[_]Interned{{",
+                .{ item.stack, self.program.getStackArity(item.stack) },
+            );
+            for (item.tuple.items, 0..) |tuple_item, j| {
+                if (j != 0) {
+                    try self.emit(", ");
+                }
+                switch (tuple_item) {
+                    .string => try self.fmtEmit("{}", .{tuple_item.string}),
+                    .variable => try self.fmtEmit("vars[{}].?", .{tuple_item.variable}),
+                }
+            }
+            try self.emit("}));\n");
+        }
         try self.emit(
-            \\        self.commitSuccess();
             \\    }
+            \\
             \\
         );
     }
