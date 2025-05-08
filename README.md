@@ -1,14 +1,14 @@
-# Mira
+# nova-compiler
 
-A compiler for the Mira programming language.
+A compiler for the Nova programming language.
 See [https://wiki.nouveau.community](https://wiki.nouveau.community).
 Work in progress...
 
 # How to use it
 
 ```
-$ git clone https://github.com/max22-/mira
-$ cd mira
+$ git clone https://github.com/max22-/nova-compiler
+$ cd nova-compiler
 $ zig build run -- examples/some_example.nv
 ```
 

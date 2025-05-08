@@ -35,7 +35,7 @@ pub fn compile(self: *Self) Allocator.Error![]u8 {
         \\const std = @import("std");
         \\const Allocator = std.mem.Allocator;
         \\
-        \\const MiraError = error{
+        \\const NovaError = error{
         \\    TupleOverflow,
         \\    StackUnderflow,
         \\    RuleFailed,
@@ -60,9 +60,9 @@ pub fn compile(self: *Self) Allocator.Error![]u8 {
         \\            self.arity = 0;
         \\        }
         \\
-        \\        fn append(self: *Tuple(n), i: Interned) MiraError!void {
+        \\        fn append(self: *Tuple(n), i: Interned) NovaError!void {
         \\            if (self.arity >= n) {
-        \\                return MiraError.TupleOverflow;
+        \\                return NovaError.TupleOverflow;
         \\            }
         \\            self.data[self.arity] = i;
         \\            self.arity += 1;
@@ -91,15 +91,15 @@ pub fn compile(self: *Self) Allocator.Error![]u8 {
         \\            self.len += 1;
         \\        }
         \\
-        \\        fn peek(self: Stack(n)) MiraError!Tuple(n) {
+        \\        fn peek(self: Stack(n)) NovaError!Tuple(n) {
         \\            if (self.data.getLastOrNull()) |last| {
         \\                return last;
         \\            } else {
-        \\                return MiraError.StackUnderflow;
+        \\                return NovaError.StackUnderflow;
         \\            }
         \\        }
         \\
-        \\        fn pop(self: *Stack(n)) MiraError!Tuple(n) {
+        \\        fn pop(self: *Stack(n)) NovaError!Tuple(n) {
         \\            const last = try self.peek();
         \\            self.len -= 1;
         \\            return last;
@@ -218,7 +218,7 @@ pub fn compile(self: *Self) Allocator.Error![]u8 {
 
     for (self.program.rules, 0..) |rule, i| {
         try self.fmtEmit(
-            "    fn rule{}(self: *Program) (Allocator.Error || MiraError)!void {{\n",
+            "    fn rule{}(self: *Program) (Allocator.Error || NovaError)!void {{\n",
             .{i},
         );
         try self.emit("        errdefer self.commitFailure();\n\n");
@@ -233,7 +233,7 @@ pub fn compile(self: *Self) Allocator.Error![]u8 {
                 .{ j, item.stack, op },
             );
             try self.emit(
-                \\            MiraError.StackUnderflow => return MiraError.RuleFailed,
+                \\            NovaError.StackUnderflow => return NovaError.RuleFailed,
                 \\            else => unreachable,
                 \\        };
                 \\
@@ -256,7 +256,7 @@ pub fn compile(self: *Self) Allocator.Error![]u8 {
             }
             try self.emit(
                 \\}, &vars))
-                \\            return MiraError.RuleFailed;
+                \\            return NovaError.RuleFailed;
                 \\
             );
         }
@@ -268,7 +268,7 @@ pub fn compile(self: *Self) Allocator.Error![]u8 {
     }
 
     try self.emit(
-        \\    fn run(self: *Program) (Allocator.Error || MiraError)!void {
+        \\    fn run(self: *Program) (Allocator.Error || NovaError)!void {
         \\        loop: while (true) {
         \\
     );
@@ -277,7 +277,7 @@ pub fn compile(self: *Self) Allocator.Error![]u8 {
         try self.fmtEmit("            blk{}: {{\n", .{i});
         try self.fmtEmit("                self.rule{}() catch |err| switch (err) {{\n", .{i});
 
-        try self.fmtEmit("                    MiraError.RuleFailed => break :blk{},\n", .{i});
+        try self.fmtEmit("                    NovaError.RuleFailed => break :blk{},\n", .{i});
         try self.emit(
             \\                    else => return err,
             \\                };

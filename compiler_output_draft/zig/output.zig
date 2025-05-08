@@ -1,7 +1,7 @@
 const std = @import("std");
 const Allocator = std.mem.Allocator;
 
-const MiraError = error{
+const NovaError = error{
     TupleOverflow,
     StackUnderflow,
     RuleFailed,
@@ -26,9 +26,9 @@ fn Tuple(comptime n: usize) type {
             self.arity = 0;
         }
 
-        fn append(self: *Tuple(n), i: Interned) MiraError!void {
+        fn append(self: *Tuple(n), i: Interned) NovaError!void {
             if (self.arity >= n) {
-                return MiraError.TupleOverflow;
+                return NovaError.TupleOverflow;
             }
             self.data[self.arity] = i;
             self.arity += 1;
@@ -69,15 +69,15 @@ fn Stack(comptime n: usize) type {
             self.len += 1;
         }
 
-        fn peek(self: Stack(n)) MiraError!Tuple(n) {
+        fn peek(self: Stack(n)) NovaError!Tuple(n) {
             if (self.data.getLastOrNull()) |last| {
                 return last;
             } else {
-                return MiraError.StackUnderflow;
+                return NovaError.StackUnderflow;
             }
         }
 
-        fn pop(self: *Stack(n)) MiraError!Tuple(n) {
+        fn pop(self: *Stack(n)) NovaError!Tuple(n) {
             const last = try self.peek();
             self.len -= 1;
             return last;
@@ -157,53 +157,53 @@ const Program = struct {
         return true;
     }
 
-    fn rule0(self: *Program) (Allocator.Error || MiraError)!void {
+    fn rule0(self: *Program) (Allocator.Error || NovaError)!void {
         errdefer self.commitFailure();
 
         var vars = [_]?Interned{null} ** 1;
 
         const t0 = self.stack1.peek() catch |err| switch (err) {
-            MiraError.StackUnderflow => return MiraError.RuleFailed,
+            NovaError.StackUnderflow => return NovaError.RuleFailed,
             else => unreachable,
         };
         if (!match(1, t0, &[_]PatternItem{.{ .value = 0 }}, &vars))
-            return MiraError.RuleFailed;
+            return NovaError.RuleFailed;
 
         const t2 = self.stack0.pop() catch |err| switch (err) {
-            MiraError.StackUnderflow => return MiraError.RuleFailed,
+            NovaError.StackUnderflow => return NovaError.RuleFailed,
             else => unreachable,
         };
         if (!match(1, t2, &[_]PatternItem{.{ .variable = 0 }}, &vars))
-            return MiraError.RuleFailed;
+            return NovaError.RuleFailed;
 
         self.commitSuccess();
         try self.stack2.push(Tuple(1).fromSlice(&[_]Interned{vars[0].?}));
     }
 
-    fn rule1(self: *Program) (Allocator.Error || MiraError)!void {
+    fn rule1(self: *Program) (Allocator.Error || NovaError)!void {
         errdefer self.commitFailure();
 
         const t1 = self.stack1.pop() catch |err| switch (err) {
-            MiraError.StackUnderflow => return MiraError.RuleFailed,
+            NovaError.StackUnderflow => return NovaError.RuleFailed,
             else => return err,
         };
 
         if (t1.arity != 1) {
-            return MiraError.RuleFailed;
+            return NovaError.RuleFailed;
         }
 
         if (t1.data[0] != 0) {
-            return MiraError.RuleFailed;
+            return NovaError.RuleFailed;
         }
 
         self.commitSuccess();
     }
 
-    fn run(self: *Program) (Allocator.Error || MiraError)!void {
+    fn run(self: *Program) (Allocator.Error || NovaError)!void {
         loop: while (true) {
             blk0: {
                 self.rule0() catch |err| switch (err) {
-                    MiraError.RuleFailed => break :blk0,
+                    NovaError.RuleFailed => break :blk0,
                     else => return err,
                 };
                 continue :loop;
@@ -211,7 +211,7 @@ const Program = struct {
 
             blk1: {
                 self.rule1() catch |err| switch (err) {
-                    MiraError.RuleFailed => break :blk1,
+                    NovaError.RuleFailed => break :blk1,
                     else => return err,
                 };
                 continue :loop;

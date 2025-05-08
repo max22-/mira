@@ -1,5 +1,5 @@
 const std = @import("std");
-const mira = @import("mira");
+const nova = @import("nova");
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
@@ -16,7 +16,7 @@ pub fn main() !void {
     const file_path = args[1];
     const source = try std.fs.cwd().readFileAlloc(allocator, file_path, std.math.maxInt(usize));
     defer allocator.free(source);
-    const result = try mira.compile(allocator, file_path, source);
+    const result = try nova.compile(allocator, file_path, source);
     defer allocator.free(result);
     std.debug.print("{s}\n", .{result});
 }

@@ -4,7 +4,7 @@
             "type": "lldb",
             "request": "launch",
             "name": "Debug Zig Project",
-            "program": "${workspaceFolder}/zig-out/bin/mira",
+            "program": "${workspaceFolder}/zig-out/bin/nova-compiler",
             "args": ["${workspaceFolder}/examples/move.nv"],
             "preLaunchTask": "build"
         }

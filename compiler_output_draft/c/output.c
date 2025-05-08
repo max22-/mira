@@ -1,18 +1,18 @@
-#ifndef MIRA_H
-#define MIRA_H
+#ifndef NOVA_H
+#define NOVA_H
 
 // temporary
-#define MIRA_IMPLEMENTATION
-#define MIRA_GENERATE_MAIN
+#define NOVA_IMPLEMENTATION
+#define NOVA_GENERATE_MAIN
 
-enum mira_error {
-    MIRA_NO_ERROR,
-    MIRA_STACK_OVERFLOW,
-    MIRA_STACK_UNDERFLOW,
-    MIRA_TUPLE_OVERFLOW,
+enum nova_error {
+    NOVA_NO_ERROR,
+    NOVA_STACK_OVERFLOW,
+    NOVA_STACK_UNDERFLOW,
+    NOVA_TUPLE_OVERFLOW,
 };
 
-#ifdef MIRA_IMPLEMENTATION
+#ifdef NOVA_IMPLEMENTATION
 
 #include <stdint.h>
 #include <stddef.h>
@@ -22,8 +22,8 @@ enum mira_error {
 
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
 
-#define MIRA_MAX_ARITY 1
-#define MIRA_STACK_SIZE 1024
+#define NOVA_MAX_ARITY 1
+#define NOVA_STACK_SIZE 1024
 
 typedef uint32_t intern_t;
 
@@ -35,9 +35,9 @@ typedef uint32_t intern_t;
 
 TUPLE_DECL(1)
 
-static tuple1_t stack0[MIRA_STACK_SIZE];
-static tuple1_t stack1[MIRA_STACK_SIZE];
-static tuple1_t stack2[MIRA_STACK_SIZE];
+static tuple1_t stack0[NOVA_STACK_SIZE];
+static tuple1_t stack1[NOVA_STACK_SIZE];
+static tuple1_t stack2[NOVA_STACK_SIZE];
 
 static size_t sptr0 = 0;
 static size_t sptr1 = 0;
@@ -64,7 +64,7 @@ static tuple1_t tuple;
 static intern_t vars[1];
 
 #warning find a better way to handle errors ?
-unsigned int mira_errno = MIRA_NO_ERROR;
+unsigned int nova_errno = NOVA_NO_ERROR;
 
 #define check(x) \
     do { \
@@ -78,7 +78,7 @@ static inline void tuple_reset() {
 
 static int tuple_push(intern_t v) {
     if(tuple.ptr >= ARRAY_SIZE(tuple.data)) {
-        mira_errno = MIRA_TUPLE_OVERFLOW;
+        nova_errno = NOVA_TUPLE_OVERFLOW;
         return 0;
     }
     tuple.data[tuple.ptr++] = v;
@@ -88,8 +88,8 @@ static int tuple_push(intern_t v) {
 #define stack_push_fn(n) \
     static int stack##n##_push() { \
         assert(tuple.ptr <= ARRAY_SIZE(stack##n[0].data)); \
-        if(sptr##n >= MIRA_STACK_SIZE) { \
-            mira_errno = MIRA_STACK_OVERFLOW; \
+        if(sptr##n >= NOVA_STACK_SIZE) { \
+            nova_errno = NOVA_STACK_OVERFLOW; \
             return 0; \
         } \
         for(size_t i = 0; i < tuple.ptr; i++) \
@@ -106,7 +106,7 @@ stack_push_fn(2)
 #define stack_peek_fn(n) \
     static int stack##n##_peek() { \
         if(sptr##n == 0) { \
-            mira_errno = MIRA_STACK_UNDERFLOW; \
+            nova_errno = NOVA_STACK_UNDERFLOW; \
             return 0; \
         } \
         for(size_t i = 0; i < sptr##n; i++) \
@@ -237,7 +237,7 @@ static int run() {
 
 #endif
 
-#ifdef MIRA_GENERATE_MAIN
+#ifdef NOVA_GENERATE_MAIN
 
 int main(void) {
     init();
