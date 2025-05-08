@@ -327,21 +327,30 @@ pub fn compile(self: *Self) Allocator.Error![]u8 {
         \\    }
         \\};
         \\
-        \\pub fn main() !void {
-        \\    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-        \\    defer _ = gpa.deinit();
-        \\    const allocator = gpa.allocator();
-        \\    var p = try Program.init(allocator);
+        \\extern fn putchar(c_int) callconv(.c) void;
+        \\fn print(allocator: std.mem.Allocator, comptime fmt: []const u8, args: anytype) void {
+        \\    const string = std.fmt.allocPrint(allocator, fmt, args) catch return;
+        \\    defer allocator.free(string);
+        \\    for (string) |c| {
+        \\        putchar(@intCast(c));
+        \\    }
+        \\}
+        \\
+        \\export fn nova() callconv(.c) void {
+        \\    var buffer = [_]u8{0} ** 1024;
+        \\    var fba = std.heap.FixedBufferAllocator.init(&buffer);
+        \\    const allocator = fba.allocator();
+        \\    var p = Program.init(allocator) catch return;
         \\    defer p.deinit();
-        \\    try p.run();
+        \\    p.run() catch return;
         \\
     );
 
     for (0..stacks_count) |i| {
-        try self.fmtEmit("    std.debug.print(\"stack{}:\\n\", .{{}});\n", .{i});
+        try self.fmtEmit("    print(allocator, \"stack{}:\\n\", .{{}});\n", .{i});
         try self.fmtEmit("    for(p.stack{}.data.items) |t| {{\n", .{i});
         try self.emit(
-            \\        std.debug.print("{any}\n", .{t});
+            \\        print(allocator, "{any}\n", .{t});
             \\    }
             \\
         );
